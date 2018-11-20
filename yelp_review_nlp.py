@@ -127,6 +127,11 @@ def extract_batch(X, y, batch_indices, doclen, embed_dim, embed_dict):
     y_batch = LongTensor(y_batch)
     return X_batch, y_batch
 
+
+def get_num_corrects(y_pred, y_target):
+    _, y_pred = torch.max(y_pred.data, 1)
+    return (y_pred == y_target).sum().item()
+
 # Main function
 def run(args):
     random.seed(args.seed)
@@ -159,8 +164,9 @@ def run(args):
     for e in range(args.epoch):
         # update
         train_loss = 0.0
+        train_corrects = 0
+        total_train_labels = 0
         niter = 0
-        #train_time = time.time()
         total_batches = int(math.ceil(len(X_train) / args.bs))
         for i, batch_indices in get_batch_indices(len(X_train), args.bs):
             print("Train batch {}/{}...".format(i + 1, total_batches), end="\r")
@@ -174,24 +180,35 @@ def run(args):
             # back propagation
             loss.backward()
             optimizer.step()
-            # accumulate loss
+            # accumulate loss and num corrects
             train_loss += loss.item()
+            train_corrects += get_num_corrects(y_pred, y_batch)
+            total_train_labels += y_batch.size(0)
             niter += 1
         train_loss /= niter
-        #train_time = time.time() - train_time
         # test
         test_loss = 0.0
+        test_corrects = 0
+        total_test_labels = 0
         niter = 0
-        for i, batch_indices in get_batch_indices(len(X_test), args.bs):
-            X_batch, y_batch = extract_batch(X_test, y_test, batch_indices,
-                                             args.doclen, embed_dim, embed_dict)
-            y_pred = model(X_batch)
-            loss = criterion(y_pred, y_batch)
-            test_loss += loss.item()
-            niter += 1
-        test_loss /= niter
-        print("Epoch {}/{}: train_loss = {:.6f}, test_loss = {:.6f}".format(
-            e + 1, args.epoch, train_loss, test_loss
+        with torch.no_grad():
+            for i, batch_indices in get_batch_indices(len(X_test), args.bs):
+                X_batch, y_batch = extract_batch(X_test, y_test, batch_indices,
+                                                 args.doclen, embed_dim,
+                                                 embed_dict)
+                y_pred = model(X_batch)
+                loss = criterion(y_pred, y_batch)
+                # accumuate loss and num corrects
+                test_corrects += get_num_corrects(y_pred, y_batch)
+                total_test_labels += y_batch.size(0)
+                test_loss += loss.item()
+                niter += 1
+            test_loss /= niter
+        print(("Epoch {}/{}: train_loss = {:.6f}, train_acc = {:.2f}%, "
+               "test_loss = {:.6f}, test_acc = {:.2f}%").format(
+            e + 1, args.epoch,
+            train_loss, train_corrects * 100.0 / total_train_labels,
+            test_loss, test_corrects * 100.0 / total_test_labels,
         ))
 
 if __name__ == '__main__':
