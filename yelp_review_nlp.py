@@ -23,7 +23,6 @@ parser.add_argument('-save_raw_texts', action='store', default=None)
 parser.add_argument('-seed', type=int, default=42)
 parser.add_argument('-bs', type=int, default=32) # batch size
 parser.add_argument('-doclen', type=int, default=100) # maximum number of words for each document
-parser.add_argument('-num_labels', type=int, default=-1)
 # Optimizer configurations
 parser.add_argument('-lr', type=float, default=0.01)
 parser.add_argument('-mom', type=float, default=0.9)
@@ -53,7 +52,7 @@ def load_yelp_data(line_limit=50000):
     for line in fin:
         line_no += 1
         data = json.loads(line)
-        text, label = data['text'], data['stars']
+        text, label = data['text'].lower(), data['stars']
         dataset.append((text, label))
         if line_no >= line_limit:
             break
@@ -64,7 +63,7 @@ def write_texts(fname, texts):
     fin = io.open(fname, 'w', encoding='utf-8')
     for t in texts:
         s = ' '.join(word_tokenize(t))
-        fin.write(s.lower() + '\n')
+        fin.write(s + '\n')
 
 
 # Functions for loading and saving embeddings
@@ -165,6 +164,8 @@ def run(args):
 
     # load data
     print("Load data...")
+
+    # text data should be in lowercase
     dataset = load_yelp_data()
 
     texts, labels = zip(*dataset)
@@ -181,7 +182,7 @@ def run(args):
 
     # load embedding vectors
     print("Load embeddings...")
-    vocabs = set([w.lower() for t in texts for w in word_tokenize(t)])
+    vocabs = set([w for t in texts for w in word_tokenize(t)])
     embed_dict, embed_dim = load_embeddings(args.embed_file, vocabs)
 
     # save embeddings (for fast load next time)
@@ -191,9 +192,8 @@ def run(args):
         return
 
     # get number of labels
-    num_labels = args.num_labels
-    if num_labels == -1:
-        num_labels = max(labels) + 1
+    num_labels = max(labels) + 1
+    print("Number of labels =", num_labels)
 
     # construct model, optimizer, and objective function
     model = DeepNet(num_labels)
@@ -217,7 +217,6 @@ def run(args):
             # extract batch
             X_batch, y_batch = extract_batch(X_train, y_train, batch_indices,
                                              args.doclen, embed_dim, embed_dict)
-            print(X_batch.shape)
             # feed forward
             optimizer.zero_grad()
             y_pred = model(X_batch)
