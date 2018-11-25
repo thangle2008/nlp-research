@@ -8,12 +8,11 @@ import torch.nn.functional as F
 class DeepNet(nn.Module):
     """
     Deep convolutional neural network for text classification.
-    Each document should be encoded as (100, 100) array.
     """
 
     def __init__(self, out_features):
         super(DeepNet, self).__init__()
-        # feature-extraction
+        # feature-extraction (assume input is (100, 300))
         self.features = nn.Sequential(
             nn.Conv2d(1, 16, 2),
             nn.ReLU(inplace=True),
@@ -24,11 +23,14 @@ class DeepNet(nn.Module):
             nn.Conv2d(32, 64, 4),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, 5),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
         )
         # classifier
         self.classifier = nn.Sequential(
             nn.Dropout(),
-            nn.Linear(64 * 10 * 10, 1028),
+            nn.Linear(128 * 3 * 15, 1028),
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(1028, 512),
