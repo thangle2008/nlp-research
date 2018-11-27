@@ -20,6 +20,7 @@ parser.add_argument('-embed_file', action='store', default=None) # path to embed
 parser.add_argument('-save_embeddings', action='store', default=None)
 parser.add_argument('-save_raw_texts', action='store', default=None)
 # Data configurations
+parser.add_argument('--binary', action='store_true')
 parser.add_argument('-seed', type=int, default=42)
 parser.add_argument('-bs', type=int, default=32) # batch size
 parser.add_argument('-doclen', type=int, default=100) # maximum number of words for each document
@@ -169,6 +170,11 @@ def run(args):
     dataset = load_yelp_data()
 
     texts, labels = zip(*dataset)
+
+    # convert labels to binary if flag = true
+    if args.binary:
+        labels = [1 if l >= 3 else 0 for l in labels]
+
     data_train, data_test = train_test_split(texts, labels)
 
     X_train, y_train = data_train
@@ -192,7 +198,7 @@ def run(args):
         return
 
     # get number of labels
-    num_labels = max(labels) + 1
+    num_labels = max(labels) - min(labels) + 1
     print("Number of labels =", num_labels)
 
     # construct model, optimizer, and objective function
