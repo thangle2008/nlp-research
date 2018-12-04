@@ -68,11 +68,6 @@ def write_texts(fname, texts):
         fin.write(s + '\n')
 
 
-def load_texts(fname):
-    fin = io.open(fname, 'r', encoding='utf-8')
-    return u'\n'.join([l for l in fin])
-
-
 # Functions for loading and saving embeddings
 def load_embeddings(fname, vocabs):
     """
