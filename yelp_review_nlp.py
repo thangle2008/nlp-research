@@ -21,6 +21,7 @@ parser.add_argument('-save_embeddings', action='store', default=None)
 parser.add_argument('-save_raw_texts', action='store', default=None)
 # Data configurations
 parser.add_argument('--binary', action='store_true')
+parser.add_argument('-input_size', type=int, default=100)
 parser.add_argument('-seed', type=int, default=42)
 parser.add_argument('-bs', type=int, default=32) # batch size
 parser.add_argument('-doclen', type=int, default=100) # maximum number of words for each document
@@ -65,6 +66,11 @@ def write_texts(fname, texts):
     for t in texts:
         s = ' '.join(word_tokenize(t))
         fin.write(s + '\n')
+
+
+def load_texts(fname):
+    fin = io.open(fname, 'r', encoding='utf-8')
+    return u'\n'.join([l for l in fin])
 
 
 # Functions for loading and saving embeddings
@@ -170,10 +176,16 @@ def run(args):
     dataset = load_yelp_data()
 
     texts, labels = zip(*dataset)
+    labels = [l - 1 for l in labels] # map to index 0
 
     # convert labels to binary if flag = true
     if args.binary:
-        labels = [1 if l >= 3 else 0 for l in labels]
+        labels = [1 if l >= 2 else 0 for l in labels]
+
+    # get number of labels
+    num_labels = max(labels) - min(labels) + 1
+    print("Number of labels =", num_labels)
+
 
     data_train, data_test = train_test_split(texts, labels)
 
@@ -197,12 +209,8 @@ def run(args):
         save_embeddings(args.save_embeddings, embed_dict, embed_dim)
         return
 
-    # get number of labels
-    num_labels = max(labels) - min(labels) + 1
-    print("Number of labels =", num_labels)
-
     # construct model, optimizer, and objective function
-    model = DeepNet(num_labels)
+    model = DeepNet(num_labels, input_size=args.input_size)
     if torch.cuda.is_available():
         model.cuda()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.mom)
