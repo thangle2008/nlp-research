@@ -14,8 +14,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from yelp_data import load_yelp_reviews
 from model.deepnn import DeepNet, train
 from utils.textdata import (
-    get_text_data_generator, 
-    tokenize_text, 
+    get_text_data_generator,
+    tokenize_text,
     write_raw_texts,
     Word2VecEmbedder,
 )
@@ -51,7 +51,7 @@ def run(args):
     texts = [tokenize_text(t) for t in texts]
 
     # split data
-    train_t, test_t, train_l, test_l = train_test_split(texts, labels, 
+    train_t, test_t, train_l, test_l = train_test_split(texts, labels,
         shuffle=True, stratify=labels, test_size=0.2)
 
     if args.raw_text_file is not None:
@@ -74,13 +74,13 @@ def run(args):
     scheduler = ReduceLROnPlateau(optimizer, 'min', verbose=True, patience=5)
     criterion = nn.CrossEntropyLoss()
 
-    train_data_generator = get_text_data_generator(train_t, train_l, 
+    train_data_generator = get_text_data_generator(train_t, train_l,
             args.bs, embedder, verbose=1)
     eval_data_generator = get_text_data_generator(test_t, test_l,
             args.bs, embedder, verbose=1)
 
     print("Begin training...")
-    train(model, optimizer, criterion, train_data_generator, 
+    train(model, optimizer, criterion, train_data_generator,
             scheduler=scheduler, num_epochs=args.epoch, 
             eval_data_generator=eval_data_generator)
 

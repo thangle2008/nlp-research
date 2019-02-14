@@ -4,10 +4,14 @@ import io
 import json
 
 
-DATA_FILE = './data/yelp/yelp_academic_dataset_review.json'
+DATA_FILE = './data/yelp/review.json'
 
 
 def load_yelp_reviews(line_limit=50000):
+    """
+    Load yelp data into texts and corresponding labels, where each text is
+    in lowercase.
+    """
     fin = io.open(DATA_FILE, 'r', encoding='utf-8')
     texts, labels = [], []
     line_no = 0
