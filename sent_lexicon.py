@@ -2,15 +2,19 @@ from __future__ import absolute_import, print_function, division
 
 import os
 
+import nltk
 from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 import sklearn.metrics as metrics
 
 from yelp_data import load_yelp_reviews
+from utils.statistics import map_range
 
 
 # TODO: currently, use the pretrained adjective sentiment lexicons
 # we should train a review-specific one
 SENT_LEXICON_PATH = './data/adjectives/'
+lemmatizer = WordNetLemmatizer()
 
 
 def read_sentiment_lexicons(file_name):
@@ -22,11 +26,20 @@ def read_sentiment_lexicons(file_name):
     return ret
 
 
-def sentiment_score(words, sent_lexicons):
+def replace_adverbs_by_adjectives(text):
+    ret = []
+    for w, t in text:
+        if t == "RB":
+            w = lemmatizer.lemmatize(w, pos=nltk.corpus.wordnet.ADV)
+        ret.append((w, t))
+    return ret
+
+
+def sentiment_score(text, sent_lexicons):
     total = 0.0
     num_sent_words = 0
 
-    for w in words:
+    for w, _ in text:
         if w in sent_lexicons:
             total += sent_lexicons[w][0]
             num_sent_words += 1
@@ -36,21 +49,6 @@ def sentiment_score(words, sent_lexicons):
     return total / num_sent_words
 
 
-def map_range(values, target_min, target_max):
-    cur_min = min(values)
-    cur_max = max(values)
-
-    def map_value(v):
-        # map to (0, 1)
-        tmp = (v - cur_min) / (cur_max - cur_min)
-        # map to target range
-        tmp = target_min + tmp * (target_max - target_min)
-        # round to nearest integer
-        return round(tmp)
-
-    return [map_value(v) for v in values]
-
-
 def run():
     years = range(1850, 2000 + 1, 10)
     sent_lexicons = {}
@@ -58,9 +56,11 @@ def run():
         y_path = os.path.join(SENT_LEXICON_PATH, "{}.tsv".format(y))
         sent_lexicons.update(read_sentiment_lexicons(y_path))
 
-    texts, labels = load_yelp_reviews()
+    texts, labels = load_yelp_reviews(line_limit=500)
+    texts = [replace_adverbs_by_adjectives(nltk.pos_tag(word_tokenize(t))) 
+                for t in texts]
 
-    sent_scores = [sentiment_score(word_tokenize(t), sent_lexicons) for t in texts]
+    sent_scores = [sentiment_score(t, sent_lexicons) for t in texts]
     predicted_labels = map_range(sent_scores, min(labels), max(labels))
     print(metrics.accuracy_score(labels, predicted_labels))
     print(metrics.confusion_matrix(labels, predicted_labels, labels=range(1, 5+1)))
