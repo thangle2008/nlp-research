@@ -1,11 +1,16 @@
 from __future__ import absolute_import, print_function, division
 
-import nltk
 import random
-from sklearn.model_selection import train_test_split
 
-from yelp_data import load_yelp_reviews
+import yelp_data as yd
 from utils.textdata import tokenize_text
+from utils.statistics import map_range
+
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.naive_bayes import MultinomialNB
+import sklearn.metrics as metrics
 
 
 def get_ngram_counts(n, text):
@@ -21,25 +26,54 @@ def get_ngram_counts(n, text):
     return ngram_dict
 
 
+def evaluate(classifier, data_x, data_y, report=False):
+    y_true = data_y
+    y_pred = classifier.predict(data_x)
+    print("Accuracy =", metrics.accuracy_score(y_true, y_pred))
+    if report:
+        print(metrics.classification_report(y_true, y_pred))
+
+
 def run():
     random.seed(42)
+    sid = SentimentIntensityAnalyzer()
 
     print("Load data...")
-    texts, labels = load_yelp_reviews(line_limit=50000)
-    X = [get_ngram_counts(1, tokenize_text(t)) for t in texts]
+    train_x, train_y = yd.load_yelp_reviews(yd.TRAIN_FILE)
+    test_x, test_y = yd.load_yelp_reviews(yd.TEST_FILE)
+    all_x = train_x + test_x
 
-    X_train, X_test, y_train, y_test = train_test_split(X, labels, 
-            test_size=0.2, shuffle=True, stratify=labels, random_state=42)
+    # Extract features as dictionaries
+    print("Extract features...")
+    train_feat = [get_ngram_counts(1, tokenize_text(t)) for t in train_x]
+    test_feat = [get_ngram_counts(1, tokenize_text(t)) for t in test_x]
 
-    train_set = zip(X_train, y_train)
-    test_set = zip(X_test, y_test)
+    # Add VADER score
+    vader_scores = [sid.polarity_scores(t)['compound'] for t in all_x]
+    vader_scores = map_range(vader_scores, 1, 5)
+    vader_scores = [int(round(s)) for s in vader_scores]
+    train_vader = vader_scores[:len(train_x)]
+    test_vader = vader_scores[len(train_x):]
+    for i in range(len(train_x)):
+        train_feat[i]['VADER-SCORE'] = train_vader[i]
+    for i in range(len(test_x)):
+        test_feat[i]['VADER-SCORE'] = test_vader[i]
+
+    # Vectorize
+    vec = DictVectorizer()
+    vec.fit(train_feat)
+    train_feat = vec.transform(train_feat)
+    test_feat = vec.transform(test_feat)
 
     print("Begin training...")
-    classifier = nltk.NaiveBayesClassifier.train(train_set)
+    classifier = MultinomialNB().fit(train_feat, train_y)
 
-    print("Evaluating...")
-    print("Train accuracy =", nltk.classify.accuracy(classifier, train_set))
-    print("Test accuracy =", nltk.classify.accuracy(classifier, test_set))
+    # Evaluating
+    print("Evaluating trainset")
+    evaluate(classifier, train_feat, train_y)
+    print("Evaluating testset")
+    evaluate(classifier, test_feat, test_y)
+
 
 if __name__ == '__main__':
     run()

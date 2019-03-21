@@ -11,19 +11,17 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from yelp_data import load_yelp_reviews
+import yelp_data as yd
 from model.deepnn import DeepNet, train
 from utils.textdata import (
     get_text_data_generator,
     tokenize_text,
-    write_raw_texts,
     Word2VecEmbedder,
 )
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-embed_file', action='store', default=None) # path to embedding file
-parser.add_argument('-raw_text_file', action='store', default=None)
+parser.add_argument('-embed_file', action='store', required=True) # path to embedding file
 # Data configurations
 parser.add_argument('--binary', action='store_true')
 parser.add_argument('-input_size', type=int, default=100)
@@ -45,21 +43,19 @@ def run(args):
     print("Load data...")
 
     # text data should be in lowercase
-    texts, labels = load_yelp_reviews(line_limit=50000)
-    labels = [l-1 for l in labels] # map to index 0
+    train_x, train_y = yd.load_yelp_reviews(yd.TRAIN_FILE)
+    test_x, test_y = yd.load_yelp_reviews(yd.TEST_FILE)
 
-    texts = [tokenize_text(t) for t in texts]
+    # map labels to start from index 0
+    train_y = [l-1 for l in train_y]
+    test_y = [l-1 for l in test_y]
 
-    # split data
-    train_t, test_t, train_l, test_l = train_test_split(texts, labels,
-        shuffle=True, stratify=labels, test_size=0.2)
-
-    if args.raw_text_file is not None:
-        write_raw_texts(train_t, args.raw_text_file)
-        return
+    # tokenize texts
+    train_x = [tokenize_text(t) for t in train_x]
+    test_x = [tokenize_text(t) for t in test_x]
 
     # get number of labels
-    num_labels = max(labels) - min(labels) + 1
+    num_labels = 2 if args.binary else 5
     print("Number of labels =", num_labels)
 
     # load embedding vectors
@@ -74,9 +70,9 @@ def run(args):
     scheduler = ReduceLROnPlateau(optimizer, 'min', verbose=True, patience=5)
     criterion = nn.CrossEntropyLoss()
 
-    train_data_generator = get_text_data_generator(train_t, train_l,
+    train_data_generator = get_text_data_generator(train_x, train_y,
             args.bs, embedder, verbose=1)
-    eval_data_generator = get_text_data_generator(test_t, test_l,
+    eval_data_generator = get_text_data_generator(test_x, test_y,
             args.bs, embedder, verbose=1)
 
     print("Begin training...")
