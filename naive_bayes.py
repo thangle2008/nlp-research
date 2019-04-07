@@ -39,25 +39,18 @@ def run():
     sid = SentimentIntensityAnalyzer()
 
     print("Load data...")
-    train_x, train_y = yd.load_yelp_reviews(yd.TRAIN_FILE)
-    test_x, test_y = yd.load_yelp_reviews(yd.TEST_FILE)
+    train_x, train_y = zip(
+        *[(o['text'].strip().lower(), o['stars']) for o in yd.load_yelp_objects(yd.TRAIN_FILE)]
+    )
+    test_x, test_y = zip(
+        *[(o['text'].strip().lower(), o['stars']) for o in yd.load_yelp_objects(yd.TEST_FILE)]
+    )
     all_x = train_x + test_x
 
-    # Extract features as dictionaries
+    # Extract features as dictionaries (it seems bigram works best)
     print("Extract features...")
-    train_feat = [get_ngram_counts(1, tokenize_text(t)) for t in train_x]
-    test_feat = [get_ngram_counts(1, tokenize_text(t)) for t in test_x]
-
-    # Add VADER score
-    vader_scores = [sid.polarity_scores(t)['compound'] for t in all_x]
-    vader_scores = map_range(vader_scores, 1, 5)
-    vader_scores = [int(round(s)) for s in vader_scores]
-    train_vader = vader_scores[:len(train_x)]
-    test_vader = vader_scores[len(train_x):]
-    for i in range(len(train_x)):
-        train_feat[i]['VADER-SCORE'] = train_vader[i]
-    for i in range(len(test_x)):
-        test_feat[i]['VADER-SCORE'] = test_vader[i]
+    train_feat = [get_ngram_counts(2, tokenize_text(t)) for t in train_x]
+    test_feat = [get_ngram_counts(2, tokenize_text(t)) for t in test_x]
 
     # Vectorize
     vec = DictVectorizer()

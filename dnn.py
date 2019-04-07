@@ -77,7 +77,7 @@ def run(args):
 
     print("Begin training...")
     train(model, optimizer, criterion, train_data_generator,
-            scheduler=scheduler, num_epochs=args.epoch, 
+            scheduler=scheduler, num_epochs=args.epoch,
             eval_data_generator=eval_data_generator)
 
 
