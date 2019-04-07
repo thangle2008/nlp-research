@@ -39,12 +39,8 @@ def run():
     sid = SentimentIntensityAnalyzer()
 
     print("Load data...")
-    train_x, train_y = zip(
-        *[(o['text'].strip().lower(), o['stars']) for o in yd.load_yelp_objects(yd.TRAIN_FILE)]
-    )
-    test_x, test_y = zip(
-        *[(o['text'].strip().lower(), o['stars']) for o in yd.load_yelp_objects(yd.TEST_FILE)]
-    )
+    train_x, train_y = yd.load_yelp_reviews(yd.TRAIN_FILE)
+    test_x, test_y = yd.load_yelp_reviews(yd.TEST_FILE)
     all_x = train_x + test_x
 
     # Extract features as dictionaries (it seems bigram works best)
